@@ -2,6 +2,9 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 import requests
+import time
+
+MAX_ATTEMPTS = 3
 
 URL = "https://geoportal.valencia.es/server/rest/services/OPENDATA/Trafico/MapServer/228/query"
 
@@ -13,8 +16,18 @@ PARAMS = {
 }
 
 def fetch_stations() -> list[dict]:
-    response = requests.get(URL, params=PARAMS, timeout=30)
-    response.raise_for_status()
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            response = requests.get(URL, params=PARAMS, timeout=60)
+            response.raise_for_status()
+            break
+        except requests.RequestException as error:
+            if attempt == MAX_ATTEMPTS:
+                raise
+            wait = 10 * attempt
+            print(f"Attempt {attempt} failed: {error}. Retrying in {wait}s...")
+            time.sleep(wait)
+
     data = response.json()
 
     if "error" in data:
