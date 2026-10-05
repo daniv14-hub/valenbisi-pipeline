@@ -1,4 +1,5 @@
 # Valenbisi Pipeline
+Valenbisi's app shows how many bikes and free docks each station has right now, but not what you will find when you actually get there. This project collects the availability of every station every 30 minutes and uses that history to show, for each station and time of day, how often there was a bike to take or a free dock to park. The goal is to help people in Valencia decide whether a trip by Valenbisi is worth it.
 
 An automated data pipeline that collects real-time availability from **Valenbisi**, the public bike-sharing system in Valencia (Spain), and stores it as a historical dataset in PostgreSQL for later analysis.
 
