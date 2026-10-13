@@ -28,9 +28,13 @@ ORDER BY day_type, local_hour;
 
 
 -- A2. Checking one trip: take a bike at one station, park it at another.
---     Example: leave station 148 at 8:00 on a working day and park at station 105 at 9:00.
---     Read pct_bike_available on the first row and the two dock columns on the second.
+--     Example: station 74 (Plaza San Felipe Neri, Mercado Algiros) to station 105
+--     (Avda. de los Naranjos, UPV) at 8:00 on a working day. The ride takes a few
+--     minutes, so both ends are read in the same hour.
+--     Read pct_bike_available on the first row (origin) and the dock columns on
+--     the second row (destination).
 SELECT
+    station_id,
     name,
     local_hour,
     measurements,
@@ -39,9 +43,9 @@ SELECT
     pct_dock_with_margin
 FROM station_hourly_availability
 WHERE day_type = 'workday'
-  AND ((station_id = 148 AND local_hour = 8)
-    OR (station_id = 105 AND local_hour = 9))
-ORDER BY local_hour;
+  AND local_hour = 8
+  AND station_id IN (74, 105)
+ORDER BY CASE station_id WHEN 74 THEN 1 ELSE 2 END;
 
 
 -- A3. Where is it hardest to park at 8:00 on a working day? (top 10)
