@@ -1,0 +1,7 @@
+# Extra dependencies for the analysis notebook only.
+# The collection pipeline (GitHub Actions) installs requirements.txt alone.
+-r requirements.txt
+pandas==3.0.6
+SQLAlchemy==2.1.4
+matplotlib==3.11.2
+ipykernel==7.4.0
