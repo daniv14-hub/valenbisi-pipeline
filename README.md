@@ -88,6 +88,19 @@ How to read the numbers:
 - The view is computed over all the data collected so far, so the figures get more reliable every week. Always check `measurements`: a percentage over a handful of rows means little.
 - Collection every 30 minutes started on 3 October 2026. Earlier rows are kept in the raw table but left out of the view.
 
+## Analysis results
+
+The full analysis is in [`notebooks/01_analysis.ipynb`](notebooks/01_analysis.ipynb): extraction from the database, six data quality checks, five documented cleaning rules (87% of readings kept) and the analysis itself.
+
+First results (data up to 14 October 2026, 6 working days, so read them as patterns rather than exact figures):
+
+- **Station 105, next to the UPV campus:** on working days there was always a free dock before 8:00, but only in 33-50% of readings between 8:00 and 11:00.
+- **A real trip, station 74 to station 105:** the origin almost always has a bike; the trip fails at the destination. Arriving before 8:00 worked every time.
+- **The whole UPV area saturates at 8:00:** at least 7 of the 10 hardest stations to park in the city are on Avda. de los Naranjos or inside the campus.
+- **Multiplying probabilities underestimates the real chance of a trip:** origin and destination are not independent, so the notebook pairs readings of both stations taken at the same time.
+
+Limitations (small sample, an atypical holiday period, 30-minute snapshots) are listed at the end of the notebook.
+
 ## Design decisions
 
 - **Idempotent loads.** The composite primary key plus `ON CONFLICT DO NOTHING` means the pipeline can run any number of times without creating duplicates. If a station has not sent a new measurement since the last run, nothing is inserted for it.
@@ -103,7 +116,8 @@ How to read the numbers:
 Observed while exploring the raw data:
 
 - Some stations keep reporting the same `updated_at` for days (e.g. stuck at 0 bikes and 0 docks), so a station can look "empty" when it is actually not reporting. A station that sends nothing new adds no rows, so those hours are missing from its figures rather than counted.
-- A station with 0 bikes and 0 free docks is out of service, not full. In the view it counts as "no bike and no dock", which is what a rider would find.
+- A station with 0 bikes and 0 free docks is out of service, not full. The SQL view counts it as "no bike and no dock", which is what a rider would find; the notebook excludes those readings to describe the system working normally.
+- `is_open` is `True` in every reading, even for stations out of service for weeks, so it cannot be used to detect closures.
 - For a share of stations, `bikes + free_docks` is lower than `total_docks`, most likely because of docks out of service.
 - Measurements are snapshots every 30 minutes. A bike taken and another returned between two snapshots cancel out, so movement is always underestimated.
 
@@ -126,13 +140,22 @@ python src/extract.py   # optional: only save a raw JSON snapshot to data/raw/
 
 Then run `sql/setup.sql` in the database to create the holidays table and the view. `sql/schedule.sql` documents the optional `pg_cron` trigger.
 
+To run the analysis notebook:
+
+```bash
+pip install -r requirements-analysis.txt
+```
+
+Then open `notebooks/01_analysis.ipynb` (VS Code or Jupyter) and run all cells.
+
 ## Roadmap
 
 - [x] Extraction from the open data API with retries
 - [x] Load into PostgreSQL (dimension + fact tables, idempotent)
 - [x] Runs every 30 minutes (`pg_cron` triggering GitHub Actions)
 - [x] Analysis layer: holidays and hourly availability view
-- [ ] Results after several weeks of data: working days vs weekends and holidays
+- [x] First analysis: data quality checks, cleaning and results (`notebooks/01_analysis.ipynb`)
+- [ ] Re-run the analysis with 4-6 weeks of data
 - [ ] Simple page: pick a station to leave from, a station to park at and a time
 - [ ] Estimate trip time from the distance between stations
 - [ ] Monitoring of stations that stop reporting
