@@ -1,0 +1,80 @@
+version: 2
+
+models:
+  - name: dim_stations
+    description: One row per station, with a readable label and current capacity.
+    columns:
+      - name: station_id
+        data_tests: [unique, not_null]
+      - name: station_label
+        data_tests: [unique, not_null]
+
+  - name: fct_readings
+    description: One clean reading per station and 30-minute slot, in Valencia time.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [station_id, slot_start]
+    columns:
+      - name: station_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_stations')
+                field: station_id
+      - name: local_hour
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0, max_value: 23}
+      - name: iso_weekday
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 1, max_value: 7}
+      - name: day_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [workday, weekend_or_holiday]
+
+  - name: fct_station_hourly
+    description: >
+      Counts per station, local date and hour. Used by the Power BI dashboard.
+      Always aggregate as sum(readings_with_x) / sum(readings).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [station_id, local_date, local_hour]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "readings_with_dock_margin <= readings_with_dock and readings_with_dock <= readings"
+
+  - name: mart_station_profile
+    description: "% of readings with a bike / a free dock, by station, type of day and hour."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [station_id, day_type, local_hour]
+    columns:
+      - name: pct_bike
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0, max_value: 100}
+      - name: pct_dock
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0, max_value: 100}
+
+  - name: mart_trip_success
+    description: Success rate of the trips in var `trips`, from paired readings of both stations.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [origin_id, destination_id, day_type, local_hour]
+      # Both conditions together can never happen more often than either one alone
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "pct_trip <= least(pct_bike_at_origin, pct_dock_at_destination)"
+
+  - name: rpt_cleaning_log
+    description: Rows left and removed by each cleaning rule.

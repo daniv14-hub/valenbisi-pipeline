@@ -1,0 +1,64 @@
+name: Transform and test (dbt)
+
+on:
+  schedule:
+    - cron: "23 5 * * *"   # once a day at 05:23 UTC; the analysis does not need more
+  workflow_dispatch:        # button to run it by hand
+
+jobs:
+  dbt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: dbt
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dbt.txt
+
+      - run: pip install -r ../requirements-dbt.txt
+
+      - name: Connection settings from DATABASE_URL
+        run: python db_env.py --github
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - run: dbt deps
+
+      - name: Build models and run data tests
+        run: dbt build
+
+      # Runs even if a test failed: knowing whether collection stopped matters most then
+      - name: Is the collection still running? (source freshness)
+        if: success() || failure()
+        run: dbt source freshness
+
+      - name: Generate documentation site (lineage + column docs)
+        if: success() || failure()
+        run: |
+          dbt docs generate --static
+          mkdir -p ../site && cp target/static_index.html ../site/index.html
+
+      - uses: actions/upload-pages-artifact@v5
+        if: success() || failure()
+        with:
+          path: site
+
+  docs:
+    needs: dbt
+    if: success() || failure()
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5

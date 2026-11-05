@@ -1,0 +1,25 @@
+name: valenbisi
+version: "1.0.0"
+profile: valenbisi
+
+model-paths: ["models"]
+test-paths: ["tests"]
+
+# The cleaning rules found in notebooks/01_analysis.ipynb (section 2),
+# kept in one place so they are easy to read and change.
+vars:
+  collection_start: "2026-10-03 00:00:00+02"   # reliable 30-minute collection from here
+  max_lag_minutes: 60                           # older readings are stale
+  local_timezone: "Europe/Madrid"
+  # Trips analysed in mart_trip_success: bike at origin AND free dock at destination
+  trips:
+    - {origin: 74, destination: 105}
+
+models:
+  valenbisi:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table

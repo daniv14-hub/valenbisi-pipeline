@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: int_readings_clean
+    description: >
+      Readings after the four cleaning rules: reliable period only, no stale
+      readings, no out-of-service readings and one reading per station and
+      30-minute slot.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [station_id, slot_start]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "bikes + free_docks > 0"
+    columns:
+      - name: lag_minutes
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                max_value: "{{ var('max_lag_minutes') }}"
+      - name: updated_at
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: "timestamptz '{{ var('collection_start') }}'"

@@ -1,0 +1,16 @@
+# Connection settings come from environment variables, never from this file.
+# `python dbt/db_env.py` builds them from DATABASE_URL (see README, "dbt layer").
+# Variables starting with DBT_ENV_SECRET_ are hidden from dbt's logs.
+valenbisi:
+  target: prod
+  outputs:
+    prod:
+      type: postgres
+      host: "{{ env_var('DBT_HOST') }}"
+      port: "{{ env_var('DBT_PORT', '5432') | as_number }}"
+      user: "{{ env_var('DBT_USER') }}"
+      password: "{{ env_var('DBT_ENV_SECRET_PASSWORD') }}"
+      dbname: "{{ env_var('DBT_DBNAME', 'postgres') }}"
+      schema: analytics
+      sslmode: "{{ env_var('DBT_SSLMODE', 'require') }}"
+      threads: 4

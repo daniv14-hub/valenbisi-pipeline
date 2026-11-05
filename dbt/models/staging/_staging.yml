@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: stg_availability
+    description: Raw readings with derived lag, 30-minute slot and out-of-service flag.
+    columns:
+      - name: lag_minutes
+        description: Minutes between the station's report (updated_at) and the download (fetched_at).
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: -1   # small negative values would mean clock skew
+      - name: slot_start
+        data_tests: [not_null]
+
+  - name: stg_stations
+    description: Stations with a readable name.
+    columns:
+      - name: station_id
+        data_tests: [unique, not_null]
+      - name: station_name
+        data_tests: [not_null]
+
+  - name: stg_holidays
+    columns:
+      - name: holiday_date
+        data_tests: [unique, not_null]

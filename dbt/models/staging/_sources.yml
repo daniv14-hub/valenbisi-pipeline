@@ -1,0 +1,88 @@
+version: 2
+
+sources:
+  - name: valenbisi
+    description: Raw tables written by src/load.py every 30 minutes. Never modified by dbt.
+    schema: public
+    tables:
+      - name: availability
+        description: One row per station and measurement, appended by the pipeline.
+        config:
+          loaded_at_field: fetched_at
+          # The pipeline runs every 30 minutes. No new rows for 2 hours means
+          # several runs failed; 12 hours means the collection has stopped.
+          freshness:
+            warn_after: {count: 2, period: hour}
+            error_after: {count: 12, period: hour}
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [station_id, updated_at]
+          # Each dock holds a bike or is free; a few are out of service.
+          # More bikes + free docks than docks is an impossible reading.
+          # Seen twice in the first 4 weeks (stations 112 and 113, off by 1, at
+          # the 8:00 arrival peak): kept, because an error of 1 does not change
+          # whether there was a bike or a free dock. Warns on any case; fails
+          # only if it becomes frequent, which would mean a change in the API.
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "bikes + free_docks <= total_docks"
+              config:
+                warn_if: ">0"
+                error_if: ">10"
+        columns:
+          - name: station_id
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('valenbisi', 'stations')
+                    field: station_id
+          - name: updated_at
+            data_tests: [not_null]
+          - name: fetched_at
+            data_tests: [not_null]
+          - name: bikes
+            data_tests:
+              - not_null
+              - dbt_utils.accepted_range:
+                  arguments:
+                    min_value: 0
+          - name: free_docks
+            data_tests:
+              - not_null
+              - dbt_utils.accepted_range:
+                  arguments:
+                    min_value: 0
+          - name: is_open
+            description: >
+              The API's open flag. It was true in 100% of readings, even for
+              stations out of service for weeks, so it is not used. The warning
+              fires if it ever changes, which would be worth re-checking.
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: [true]
+                    quote: false
+                  config:
+                    severity: warn
+
+      - name: stations
+        description: One row per station, upserted by the pipeline.
+        columns:
+          - name: station_id
+            data_tests: [unique, not_null]
+          - name: latitude
+            data_tests:
+              - dbt_utils.accepted_range:
+                  arguments: {min_value: 39.3, max_value: 39.6}   # Valencia
+          - name: longitude
+            data_tests:
+              - dbt_utils.accepted_range:
+                  arguments: {min_value: -0.5, max_value: -0.2}
+
+      - name: holidays
+        description: Public holidays in Valencia, maintained in sql/setup.sql.
+        columns:
+          - name: day
+            data_tests: [unique, not_null]
