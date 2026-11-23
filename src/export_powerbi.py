@@ -8,10 +8,13 @@ Run from the repo root, after `dbt build`:
 
 Output: data/powerbi/valenbisi_powerbi.xlsx (data/ is git-ignored).
 
-Sheets:
-- hourly         fct_station_hourly + station name, location and capacity.
-                 One flat table, so the dashboard needs no relationships.
-                 Aggregate as sum(readings_with_dock) / sum(readings).
+Sheets (small on purpose: about 0.5 MB, so it uploads to Power BI on the web):
+- station_hour   fct_station_hourly summed over dates, plus station name,
+                 location and capacity: station x type of day x hour.
+                 Counts, not percentages, so Power BI aggregates them correctly:
+                 % free dock = sum(readings_with_dock) / sum(readings).
+- daily          clean readings and stations per day, for the collection
+                 health chart.
 - trips          mart_trip_success
 - cleaning_log   rpt_cleaning_log
 """
@@ -25,11 +28,26 @@ from sqlalchemy import create_engine
 OUT = Path("data/powerbi/valenbisi_powerbi.xlsx")
 
 QUERIES = {
-    "hourly": """
-        SELECT h.*, s.station_name, s.station_label, s.latitude, s.longitude, s.capacity
+    "station_hour": """
+        SELECT h.station_id, s.station_label, s.latitude, s.longitude, s.capacity,
+               h.day_type, h.local_hour,
+               sum(h.readings) AS readings,
+               sum(h.readings_with_bike) AS readings_with_bike,
+               sum(h.readings_with_dock) AS readings_with_dock,
+               sum(h.readings_with_dock_margin) AS readings_with_dock_margin
         FROM analytics.fct_station_hourly h
         JOIN analytics.dim_stations s USING (station_id)
-        ORDER BY h.station_id, h.local_date, h.local_hour
+        GROUP BY h.station_id, s.station_label, s.latitude, s.longitude, s.capacity,
+                 h.day_type, h.local_hour
+        ORDER BY h.station_id, h.day_type, h.local_hour
+    """,
+    "daily": """
+        SELECT local_date, day_type,
+               sum(readings) AS readings,
+               count(DISTINCT station_id) AS stations
+        FROM analytics.fct_station_hourly
+        GROUP BY local_date, day_type
+        ORDER BY local_date
     """,
     "trips": "SELECT * FROM analytics.mart_trip_success ORDER BY origin_id, destination_id, day_type, local_hour",
     "cleaning_log": "SELECT * FROM analytics.rpt_cleaning_log ORDER BY step",

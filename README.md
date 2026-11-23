@@ -162,6 +162,29 @@ The map of every station at 8:00 is in [`docs/img/map_full_at_8.png`](docs/img/m
 
 **Limitations:** one autumn month, about 36 paired readings per hour (bands around 30 points wide), and historical frequency rather than prediction. Details at the end of the notebook.
 
+## Power BI dashboard
+
+![Power BI dashboard](docs/img/powerbi_dashboard.png)
+
+The same results as an interactive Power BI report, built on the dbt marts:
+
+- **Stations most often full:** ranking of stations by % of readings with no free dock, filtered by type of day and hour. At 8:00 on working days it reproduces the notebook's ranking exactly (UPV Junto Pistas Deportivas 67%, station 105 47%).
+- **My commute, 74 to 105:** bike at the origin, free dock at the destination and both at once, hour by hour, on working days.
+- **Collection health:** clean readings per station and day, where the November outage is visible.
+- **Whole-city card:** % of readings with a free dock for the selected type of day and hour, as a reference for the campus figures.
+
+How it is built:
+
+```
+dbt marts -> src/export_powerbi.py -> Excel (station_hour, daily, trips, cleaning_log) -> Power BI semantic model -> report
+```
+
+- **Why an Excel file:** Power BI Desktop does not run on Mac, and Power BI on the web cannot connect to Supabase directly. The export is aggregated to about 0.5 MB so it uploads to the web version.
+- **Counts, not percentages:** the export keeps `readings` and `readings_with_dock` and the percentages are DAX measures, so they stay correct for any filter: `% free dock = DIVIDE(SUM(readings_with_dock), SUM(readings))`, `% full = 1 - [% free dock]`, `% bike available`, `Readings count` and `Readings per station`. Averaging stored percentages would give an hour with 2 readings the same weight as one with 36.
+- **Modelling details:** `local_hour` is set not to summarize (an hour is not a quantity) and `local_date` is typed as a date.
+- **Checked against the analysis:** a DAX query on the model gives 53% free docks at station 105 at 8:00 on working days over 36 readings, the same as the dbt mart and the notebook.
+- **Data snapshot:** the dashboard uses the export of 5 November 2026, the same period as the final analysis, so the figures match the notebook and this README.
+
 ## Incident: collection outage, 1-5 November 2026
 
 ![Clean readings per station and day](docs/img/collection_health.png)
@@ -236,7 +259,7 @@ pip install -r requirements-analysis.txt
 
 Then open `notebooks/01_analysis.ipynb` (exploration and cleaning rules) or `notebooks/02_final_analysis.ipynb` (final analysis on the dbt marts, needs `dbt build` first) and run all cells. Charts are saved to `docs/img/`.
 
-To export the marts for the Power BI dashboard (`data/powerbi/valenbisi_powerbi.xlsx`):
+To export the marts for the Power BI dashboard (`data/powerbi/valenbisi_powerbi.xlsx`, about 0.5 MB, uploaded to Power BI on the web with *Create > Excel*):
 
 ```bash
 python src/export_powerbi.py
@@ -252,7 +275,7 @@ python src/export_powerbi.py
 - [x] Cleaning rules moved to dbt, with 47 automated data tests run daily in GitHub Actions
 - [x] Monitoring of the collection: source freshness and run-gap checks (dbt)
 - [x] Final analysis with charts and confidence bands (`notebooks/02_final_analysis.ipynb`)
-- [ ] Power BI dashboard
+- [x] Power BI dashboard on the dbt marts, with DAX measures
 - [ ] Simple page: pick a station to leave from, a station to park at and a time
 - [ ] Estimate trip time from the distance between stations
 - [ ] Compare weekdays (e.g. is Tuesday worse than Friday?) once there are enough weeks of data
