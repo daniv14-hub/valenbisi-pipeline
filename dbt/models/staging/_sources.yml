@@ -72,14 +72,20 @@ sources:
         columns:
           - name: station_id
             data_tests: [unique, not_null]
+          # Valencia's bounding box. The API also publishes station 299
+          # "LABMAD", a test dock in a Madrid lab (seen Nov 2026). Stations
+          # outside Valencia are excluded in the cleaning (stg_stations.is_in_valencia),
+          # so these tests warn instead of stopping every downstream model.
           - name: latitude
             data_tests:
               - dbt_utils.accepted_range:
-                  arguments: {min_value: 39.3, max_value: 39.6}   # Valencia
+                  arguments: {min_value: 39.3, max_value: 39.6}
+                  config: {severity: warn}
           - name: longitude
             data_tests:
               - dbt_utils.accepted_range:
                   arguments: {min_value: -0.5, max_value: -0.2}
+                  config: {severity: warn}
 
       - name: holidays
         description: Public holidays in Valencia, maintained in sql/setup.sql.

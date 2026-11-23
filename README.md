@@ -219,6 +219,8 @@ Observed while exploring the raw data:
 - `is_open` is `True` in every reading, even for stations out of service for weeks, so it cannot be used to detect closures.
 - For a share of stations, `bikes + free_docks` is lower than `total_docks`, most likely because of docks out of service.
 - Twice in the first four weeks `bikes + free_docks` was **higher** than `total_docks`, which is impossible (stations 112 and 113, off by one, both at the 8:00 arrival peak). The readings are kept, because an error of one does not change whether there was a bike or a free dock; a dbt test warns on every new case and fails if they become frequent.
+- The API also publishes station 299 "LABMAD", a test dock in a lab in Madrid (first seen November 2026). Its rows stay in the raw tables; the cleaning drops every station outside Valencia's bounding box, and the coordinate tests warn if a new one appears.
+- On 18-19 November the API was slow and some runs retried. `fetched_at` was taken before the download, so 33 readings from one run looked updated after they were fetched. It is now taken after the download; the dbt test warns on any new case and fails only if it becomes frequent. Before this fix, these two issues failed source tests and dbt skipped every downstream model, so the marts stayed frozen at 18 November for five days.
 - Measurements are snapshots every 30 minutes. A bike taken and another returned between two snapshots cancel out, so movement is always underestimated.
 
 ## Run it locally

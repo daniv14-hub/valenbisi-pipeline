@@ -17,10 +17,13 @@ fresh as (
     where lag_minutes <= {{ var("max_lag_minutes") }}
 ),
 
--- Rule 3: 0 bikes and 0 free docks = out of service (is_open cannot be trusted)
+-- Rule 3: 0 bikes and 0 free docks = out of service (is_open cannot be trusted).
+-- Also drops stations outside Valencia: the API publishes a test dock in Madrid
 in_service as (
-    select * from fresh
-    where not is_out_of_service
+    select f.* from fresh f
+    join {{ ref('stg_stations') }} s using (station_id)
+    where not f.is_out_of_service
+      and s.is_in_valencia
 ),
 
 -- Rule 4: extra pipeline runs leave 2 readings in some slots; keep the latest

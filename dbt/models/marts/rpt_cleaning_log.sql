@@ -18,11 +18,13 @@ steps as (
     where updated_at >= timestamptz '{{ var("collection_start") }}'
       and lag_minutes <= {{ var("max_lag_minutes") }}
     union all
-    select 3, 'in service', count(*)
+    select 3, 'in service, in Valencia', count(*)
     from r
+    join {{ ref('stg_stations') }} s using (station_id)
     where updated_at >= timestamptz '{{ var("collection_start") }}'
       and lag_minutes <= {{ var("max_lag_minutes") }}
       and not is_out_of_service
+      and s.is_in_valencia
     union all
     select 4, 'one reading per slot', count(*)
     from {{ ref('int_readings_clean') }}

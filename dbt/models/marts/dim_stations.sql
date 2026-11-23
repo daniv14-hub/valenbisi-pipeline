@@ -21,3 +21,4 @@ select
     c.capacity
 from {{ ref('stg_stations') }} s
 left join latest_capacity c using (station_id)
+where s.is_in_valencia

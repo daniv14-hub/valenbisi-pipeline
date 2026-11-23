@@ -24,8 +24,10 @@ INSERT_AVAILABILITY = """
 
 def main() -> None:
     load_dotenv()
-    fetched_at = datetime.now(timezone.utc)  
     features = fetch_stations()
+    # Taken after the download: retries can delay it by a minute or more, and
+    # an earlier timestamp made readings look updated after they were fetched
+    fetched_at = datetime.now(timezone.utc)
 
     station_rows = []
     availability_rows = []  

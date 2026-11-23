@@ -38,8 +38,8 @@ def fetch_stations() -> list[dict]:
     return data["features"]
 
 def main() -> None:
-    fetched_at = datetime.now(timezone.utc)
     features = fetch_stations()
+    fetched_at = datetime.now(timezone.utc)
     print(f"{len(features)} stations fetched at {fetched_at.isoformat()}")
 
     out_file = Path("data/raw") / f"valenbisi_{fetched_at:%Y%m%dT%H%M%SZ}.json"
